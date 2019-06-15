@@ -1,17 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PostItLater
 {
     public struct Token
     {
         public string access_token;
-        public int expires_in;
-        public string scope;
         public string token_type;
+        public int expires_in;
+        public string refresh_token;
+        public string scope;
     }
 
     public struct Task
@@ -21,5 +18,19 @@ namespace PostItLater
         public string content;
         public string thing;
         public string title;
+    }
+
+    public struct APIKey
+    {
+        public APIKey(string token, string refresh, int expiration)
+        {
+            this.token = token;
+            this.refresh = refresh;
+            this.tokenExpirationEpoch = DateTimeOffset.Now.ToUnixTimeSeconds() + expiration;
+        }
+
+        public string token;
+        public string refresh;
+        public long tokenExpirationEpoch;
     }
 }

@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using RestSharp;
 using RestSharp.Authenticators;
 using Newtonsoft.Json;
 using System.Net;
-using System.Threading; 
+using System.Threading;
+using System.IO;
 
 namespace PostItLater
 {
@@ -21,13 +21,13 @@ namespace PostItLater
             Listener listener = new Listener();
             listener.Start();
 
-            while(true)
+            while (true)
             {
                 Thread.Sleep(5 * 1000);
                 var now = DateTimeOffset.Now;
                 if (listener.HasWork()) { pendingTasks.AddRange(listener.GetWork()); }
 
-                for(int i = pendingTasks.Count - 1; i >= 0; i--)
+                for (int i = pendingTasks.Count - 1; i >= 0; i--)
                 {
                     var delta = DateTimeOffset.FromUnixTimeSeconds(pendingTasks[i].epoch) - now;
                     if (delta.TotalSeconds > 0) { continue; }
@@ -37,6 +37,7 @@ namespace PostItLater
                 }
             }
         }
+
     }
     class Listener
     {
@@ -85,15 +86,80 @@ namespace PostItLater
         }
     }
 
-    class PostItLater {
-        Token token;
-        RestClient oauth;
+    class Setup
+    {
+        private readonly string landingUrl = "http://localhost:7926/";
+        private readonly string clientId;
+        private readonly Guid guid = Guid.NewGuid();
 
+        public Setup(string clientId)
+        {
+            this.clientId = clientId;
+        }
+
+        public APIKey Run()
+        {
+            System.Diagnostics.Process.Start(String.Format("https://www.reddit.com/api/v1/authorize?client_id={0}&" +
+                                                    "response_type=code&" +
+                                                    "state={2}&" +
+                                                    "redirect_uri={1}&" +
+                                                    "duration=permanent&" +
+                                                    "scope=submit", clientId, landingUrl, guid.ToString()));
+            var code = GetCode();
+            var token = GetToken(code);
+            return new APIKey(token.access_token, token.refresh_token, token.expires_in);
+        }
+        private string GetCode()
+        {
+            var httpclient = new HttpListener();
+            httpclient.Prefixes.Add(landingUrl);
+            httpclient.Start();
+            var context = httpclient.GetContext();
+            var query = context.Request.QueryString;
+            if (query["error"] != null) { Console.Error.WriteLine("Error"); }
+            if (query["state"] != guid.ToString()) { Console.Error.WriteLine("Error"); }
+            context.Response.Redirect("https://www.reddit.com/prefs/apps/");
+            context.Response.Close();
+            httpclient.Stop();
+            return query["code"];
+        }
+        private Token GetToken(string code)
+        {
+            var client = new RestClient("https://www.reddit.com/");
+            client.Authenticator = new HttpBasicAuthenticator(clientId, "");
+            var request = new RestRequest("api/v1/access_token", Method.POST);
+            request.AddParameter("grant_type", "authorization_code");
+            request.AddParameter("code", code);
+            request.AddParameter("redirect_uri", landingUrl);
+            var result = client.Execute(request);
+            Console.WriteLine(result.Content);
+
+            var token = JsonConvert.DeserializeObject<Token>(result.Content);
+            return token;
+        }
+    }
+    class PostItLater
+    {
+        readonly static string cfgPath = AppDomain.CurrentDomain.BaseDirectory + "cfg.txt";
+        readonly static string clientId = "FPA7sj2DFPNWpQ";
+        APIKey apikey;
+        RestClient oauth;
         public PostItLater()
         {
+            if (File.Exists(cfgPath))
+            {
+                var raw_data = File.ReadAllText(cfgPath);
+                apikey = JsonConvert.DeserializeObject<APIKey>(raw_data);
+            } 
+            else
+            {
+                apikey = new Setup(clientId).Run();
+                File.WriteAllText(cfgPath, JsonConvert.SerializeObject(apikey));
+            }
+
             oauth = new RestClient("https://oauth.reddit.com");
-            oauth.Authenticator = new HttpBasicAuthenticator("iBD7pShu5iNzrg", "TNjpWNy29AvKUw-8i5xyI8jzYs4");
-            AcquireToken();
+            oauth.Authenticator = new HttpBasicAuthenticator(clientId, "");
+            RefreshToken();
         }
         public void ProcessTask(Task task)
         {
@@ -114,24 +180,26 @@ namespace PostItLater
         RestRequest PrepareRequest(string api, Method method)
         {
             var request = new RestRequest(api, method);
-            request.AddHeader("Authorization", "bearer " + token.access_token);
+            request.AddHeader("Authorization", "bearer " + apikey.token);
             return request;
         }
-        void AcquireToken()
+        void RefreshToken()
         {
             var client = new RestClient("https://www.reddit.com");
-            client.Authenticator = new HttpBasicAuthenticator("appid", "secret");
+            client.Authenticator = new HttpBasicAuthenticator(clientId, "");
             var request = new RestRequest("api/v1/access_token", Method.POST);
-            request.AddParameter("grant_type", "password");
-            request.AddParameter("username", "user");
-            request.AddParameter("password", "pw");
+            request.AddParameter("grant_type", "refresh_token");
+            request.AddParameter("refresh_token", apikey.refresh);
             var result = client.Execute(request);
             if (result.StatusCode != System.Net.HttpStatusCode.OK)
             {
                 Console.Error.WriteLine("Error! Acquring token failed");
+                Console.WriteLine(result.Content);
+
                 return;
             }
-            token = JsonConvert.DeserializeObject<Token>(result.Content);
+            var parsed_result = JsonConvert.DeserializeObject<Token>(result.Content);
+            Console.WriteLine(result.Content);
         }
 
         void Link(Task task)
@@ -140,11 +208,11 @@ namespace PostItLater
             request.AddParameter("title", task.title);
             request.AddParameter("kind", task.type);
             request.AddParameter("sr", task.thing);
-            request.AddParameter(task.type == "self"? "text" : "url", task.content);
+            request.AddParameter(task.type == "self" ? "text" : "url", task.content);
 
             var result = oauth.Execute(request);
             dynamic parsedJson = JsonConvert.DeserializeObject(result.Content);
-            var json= JsonConvert.SerializeObject(parsedJson, Formatting.Indented);
+            var json = JsonConvert.SerializeObject(parsedJson, Formatting.Indented);
             Console.WriteLine(json);
 
             Console.WriteLine(JsonConvert.SerializeObject(task, Formatting.Indented));
@@ -158,9 +226,8 @@ namespace PostItLater
             request.AddParameter("thing_id", task.thing);
             var result = oauth.Execute(request);
             dynamic parsedJson = JsonConvert.DeserializeObject(result.Content);
-            var json= JsonConvert.SerializeObject(parsedJson, Formatting.Indented);
+            var json = JsonConvert.SerializeObject(parsedJson, Formatting.Indented);
             Console.WriteLine(json);
-            
         }
     }
 }
