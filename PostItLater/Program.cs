@@ -144,6 +144,12 @@ namespace PostItLater
         readonly static string clientId = "FPA7sj2DFPNWpQ";
         APIKey apikey;
         RestClient oauth;
+        double remainingTokenTime 
+        {
+            get {
+                return (DateTimeOffset.FromUnixTimeSeconds(apikey.tokenExpirationEpoch) - DateTimeOffset.Now).TotalSeconds;
+            }
+        }
         public PostItLater()
         {
             if (File.Exists(cfgPath))
@@ -159,10 +165,13 @@ namespace PostItLater
 
             oauth = new RestClient("https://oauth.reddit.com");
             oauth.Authenticator = new HttpBasicAuthenticator(clientId, "");
-            RefreshToken();
         }
         public void ProcessTask(Task task)
         {
+            if (remainingTokenTime < 60*5)
+            {
+                RefreshToken();
+            }
             switch (task.type)
             {
                 case "comment":
@@ -199,6 +208,9 @@ namespace PostItLater
                 return;
             }
             var parsed_result = JsonConvert.DeserializeObject<Token>(result.Content);
+            apikey = new APIKey(parsed_result.access_token, apikey.refresh, parsed_result.expires_in);
+            File.WriteAllText(cfgPath, JsonConvert.SerializeObject(apikey));
+
             Console.WriteLine(result.Content);
         }
 
