@@ -11,13 +11,37 @@ namespace PostItLater
 {
     class Program
     {
-        // Conditions to consider: 
+        /// <summary>
+        /// Build version.
+        /// </summary>
+        public static readonly string Version = "0.1";
+
+        /// <summary>
+        /// Location of config file.
+        /// </summary>
+        public static readonly string CfgPath = AppDomain.CurrentDomain.BaseDirectory + "cfg.txt";
+
+        private static readonly string ClientId = "FPA7sj2DFPNWpQ";
+
+        // Conditions to consider:
         //  Needing to refresh token
         //  Bad response
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             List<Task> pendingTasks = new List<Task>();
-            PostItLater pil = new PostItLater();
+            APIKey apikey;
+            if (LoadCfg().HasValue)
+            {
+                apikey = LoadCfg().Value;
+            }
+            else
+            {
+                apikey = new Setup(ClientId).Run();
+                Reddit_APIKeyUpdated(apikey);
+            }
+
+            var reddit = new SpecializedRedditClient(apikey, ClientId);
+            reddit.APIKeyUpdated += Reddit_APIKeyUpdated;
             Listener listener = new Listener();
             listener.Start();
 
@@ -32,13 +56,25 @@ namespace PostItLater
                     var delta = DateTimeOffset.FromUnixTimeSeconds(pendingTasks[i].epoch) - now;
                     if (delta.TotalSeconds > 0) { continue; }
 
-                    pil.ProcessTask(pendingTasks[i]);
+                    reddit.ProcessTask(pendingTasks[i]);
                     pendingTasks.RemoveAt(i);
                 }
             }
         }
 
+        private static void Reddit_APIKeyUpdated(APIKey apikey)
+        {
+            File.WriteAllText(CfgPath, JsonConvert.SerializeObject(apikey));
+        }
+
+        private static APIKey? LoadCfg()
+        {
+            if (!File.Exists(CfgPath)) { return null; }
+
+            return JsonConvert.DeserializeObject<APIKey>(File.ReadAllText(CfgPath));
+        }
     }
+
     class Listener
     {
         List<Task> queue = new List<Task>();
@@ -136,110 +172,6 @@ namespace PostItLater
 
             var token = JsonConvert.DeserializeObject<Token>(result.Content);
             return token;
-        }
-    }
-    class PostItLater
-    {
-        readonly static string cfgPath = AppDomain.CurrentDomain.BaseDirectory + "cfg.txt";
-        readonly static string clientId = "FPA7sj2DFPNWpQ";
-        APIKey apikey;
-        RestClient oauth;
-        double remainingTokenTime 
-        {
-            get {
-                return (DateTimeOffset.FromUnixTimeSeconds(apikey.tokenExpirationEpoch) - DateTimeOffset.Now).TotalSeconds;
-            }
-        }
-        public PostItLater()
-        {
-            if (File.Exists(cfgPath))
-            {
-                var raw_data = File.ReadAllText(cfgPath);
-                apikey = JsonConvert.DeserializeObject<APIKey>(raw_data);
-            } 
-            else
-            {
-                apikey = new Setup(clientId).Run();
-                File.WriteAllText(cfgPath, JsonConvert.SerializeObject(apikey));
-            }
-
-            oauth = new RestClient("https://oauth.reddit.com");
-            oauth.Authenticator = new HttpBasicAuthenticator(clientId, "");
-        }
-        public void ProcessTask(Task task)
-        {
-            if (remainingTokenTime < 60*5)
-            {
-                RefreshToken();
-            }
-            switch (task.type)
-            {
-                case "comment":
-                    Comment(task);
-                    return;
-                case "self":
-                case "link":
-                    Link(task);
-                    return;
-                default:
-                    Console.Error.WriteLine(String.Format("ERROR"));
-                    return;
-            }
-        }
-        RestRequest PrepareRequest(string api, Method method)
-        {
-            var request = new RestRequest(api, method);
-            request.AddHeader("Authorization", "bearer " + apikey.token);
-            return request;
-        }
-        void RefreshToken()
-        {
-            var client = new RestClient("https://www.reddit.com");
-            client.Authenticator = new HttpBasicAuthenticator(clientId, "");
-            var request = new RestRequest("api/v1/access_token", Method.POST);
-            request.AddParameter("grant_type", "refresh_token");
-            request.AddParameter("refresh_token", apikey.refresh);
-            var result = client.Execute(request);
-            if (result.StatusCode != System.Net.HttpStatusCode.OK)
-            {
-                Console.Error.WriteLine("Error! Acquring token failed");
-                Console.WriteLine(result.Content);
-
-                return;
-            }
-            var parsed_result = JsonConvert.DeserializeObject<Token>(result.Content);
-            apikey = new APIKey(parsed_result.access_token, apikey.refresh, parsed_result.expires_in);
-            File.WriteAllText(cfgPath, JsonConvert.SerializeObject(apikey));
-
-            Console.WriteLine(result.Content);
-        }
-
-        void Link(Task task)
-        {
-            var request = PrepareRequest("api/submit", Method.POST);
-            request.AddParameter("title", task.title);
-            request.AddParameter("kind", task.type);
-            request.AddParameter("sr", task.thing);
-            request.AddParameter(task.type == "self" ? "text" : "url", task.content);
-
-            var result = oauth.Execute(request);
-            dynamic parsedJson = JsonConvert.DeserializeObject(result.Content);
-            var json = JsonConvert.SerializeObject(parsedJson, Formatting.Indented);
-            Console.WriteLine(json);
-
-            Console.WriteLine(JsonConvert.SerializeObject(task, Formatting.Indented));
-
-        }
-
-        void Comment(Task task)
-        {
-            var request = PrepareRequest("api/comment", Method.POST);
-            request.AddParameter("text", task.content);
-            request.AddParameter("thing_id", task.thing);
-            var result = oauth.Execute(request);
-            dynamic parsedJson = JsonConvert.DeserializeObject(result.Content);
-            var json = JsonConvert.SerializeObject(parsedJson, Formatting.Indented);
-            Console.WriteLine(json);
         }
     }
 }
