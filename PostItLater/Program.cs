@@ -42,7 +42,7 @@ namespace PostItLater
 
             var reddit = new SpecializedRedditClient(apikey, ClientId);
             reddit.APIKeyUpdated += Reddit_APIKeyUpdated;
-            Listener listener = new Listener();
+            RequestListener listener = new RequestListener();
             listener.Start();
 
             while (true)
@@ -72,53 +72,6 @@ namespace PostItLater
             if (!File.Exists(CfgPath)) { return null; }
 
             return JsonConvert.DeserializeObject<APIKey>(File.ReadAllText(CfgPath));
-        }
-    }
-
-    class Listener
-    {
-        List<Task> queue = new List<Task>();
-        Thread thread;
-
-        public void Start()
-        {
-            thread = new Thread(Run);
-            thread.Start();
-        }
-        public bool HasWork()
-        {
-            lock (queue)
-            {
-                return queue.Count > 0;
-            }
-        }
-        public Task[] GetWork()
-        {
-            Task[] tasks;
-            lock (queue)
-            {
-                tasks = queue.ToArray();
-                queue.Clear();
-            }
-            return tasks;
-        }
-        void Run()
-        {
-            var httpListener = new HttpListener();
-            httpListener.Prefixes.Add("http://localhost:4958/");
-            httpListener.Start();
-            while (true)
-            {
-                var context = httpListener.GetContext();
-                var request = context.Request;
-                var raw_data = new System.IO.StreamReader(request.InputStream, request.ContentEncoding).ReadToEnd();
-                var data = JsonConvert.DeserializeObject<Task>(raw_data);
-                Console.WriteLine(String.Format("{0} task added", data.type));
-                lock (queue)
-                {
-                    queue.Add(data);
-                }
-            }
         }
     }
 
