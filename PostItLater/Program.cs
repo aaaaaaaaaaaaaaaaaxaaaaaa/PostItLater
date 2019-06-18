@@ -34,7 +34,7 @@
             var largs = new List<string>(args);
             if (largs.Contains("-v")) { Verbose = true; }
 
-            List<Task> pendingTasks = new List<Task>();
+            var pendingTasks = new Stack<Task>();
             APIKey apikey;
             if (LoadCfg().HasValue)
             {
@@ -57,11 +57,16 @@
             {
                 Thread.Sleep(5 * 1000);
                 var now = DateTimeOffset.Now;
-                if (listener.HasWork()) { pendingTasks.AddRange(listener.GetWork()); }
+                if (listener.HasWork())
+                {
+                    var work = listener.GetWork();
+                    work.ForEach(e => pendingTasks.Push(e));
+                    Log.Info(string.Format("Scheduling {0} task{1}.", work.Count, work.Count > 1 ? "s" : string.Empty));
+                }
 
                 for (int i = pendingTasks.Count - 1; i >= 0; i--)
                 {
-                    var task = pendingTasks[i];
+                    var task = pendingTasks.Pop();
                     if (now < DateTimeOffset.FromUnixTimeSeconds(task.epoch)) { continue; }
 
                     RedditOAuthClient.ResponseCode result;
@@ -75,8 +80,6 @@
                         continue;
                     }
 
-                    pendingTasks.RemoveAt(i);
-
                     if (result == RedditOAuthClient.ResponseCode.OKAY)
                     {
                         continue;
@@ -85,7 +88,7 @@
                     {
                         var minutesToWait = GetRateLimitPeriod(reddit.GetErrorInfo());
                         task.epoch = now.AddMinutes(minutesToWait).ToUnixTimeSeconds();
-                        pendingTasks.Add(task);
+                        pendingTasks.Push(task);
                         Log.Warn(string.Format("Task due was delayed due to RATE_LIMITED, will try again in {0} minutes", minutesToWait));
                     }
                     else

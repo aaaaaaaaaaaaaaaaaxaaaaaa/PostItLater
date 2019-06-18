@@ -37,14 +37,15 @@
         /// Get queued tasks.
         /// </summary>
         /// <returns>Array of tasks.</returns>
-        public Task[] GetWork()
+        public List<Task> GetWork()
         {
-            Task[] tasks;
+            List<Task> tasks;
             lock (this.queue)
             {
-                tasks = this.queue.ToArray();
+                tasks = new List<Task>(this.queue);
                 this.queue.Clear();
             }
+
             return tasks;
         }
 
