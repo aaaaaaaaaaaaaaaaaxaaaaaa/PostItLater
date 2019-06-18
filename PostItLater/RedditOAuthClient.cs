@@ -19,7 +19,7 @@
         private readonly string clientId;
         private readonly RestClient client;
         private APIKey apikey;
-        private string error_info;
+        private string errorInfo;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RedditOAuthClient"/> class.
@@ -33,14 +33,6 @@
             this.clientId = clientId;
         }
 
-        public enum ResponseCode
-        {
-            OKAY,
-            RATE_LIMITED,
-            HTTP_FAILURE,
-            UNKNOWN,
-        };
-
         /// <summary>
         /// Delegate to notify event subscribers of APIKey update.
         /// </summary>
@@ -51,6 +43,14 @@
         /// This event is raised whenever the APIKey is refreshed.
         /// </summary>
         public event APIUpdate APIKeyUpdated;
+
+        public enum ResponseCode
+        {
+            OKAY,
+            RATE_LIMITED,
+            HTTP_FAILURE,
+            UNKNOWN,
+        };
 
         private double RemainingTokenTime
         {
@@ -66,7 +66,7 @@
         /// <returns>Reddit error.</returns>
         public string GetErrorInfo()
         {
-            return this.error_info;
+            return this.errorInfo;
         }
 
         /// <summary>
@@ -90,8 +90,8 @@
                 }
             }
 
-            var response = this.client.Execute(request); //-- response code
-            return this.GetResponseCode(response); //-- return true status
+            var response = this.client.Execute(request);
+            return this.GetResponseCode(response);
         }
 
         private static RestClient CreateClient(string baseUrl, string clientId)
@@ -124,16 +124,16 @@
 
         protected ResponseCode GetResponseCode(IRestResponse response)
         {
-            if (response.StatusCode != System.Net.HttpStatusCode.OK) { this.error_info = string.Empty; return ResponseCode.HTTP_FAILURE; }
+            if (response.StatusCode != System.Net.HttpStatusCode.OK) { this.errorInfo = string.Empty; return ResponseCode.HTTP_FAILURE; }
 
             var raw_parse = JObject.Parse(response.Content);
             var error_array = (JArray)raw_parse["json"]["errors"];
-            if (error_array.Count == 0) { this.error_info = string.Empty; return ResponseCode.OKAY; }
+            if (error_array.Count == 0) { this.errorInfo = string.Empty; return ResponseCode.OKAY; }
 
             var errors = error_array[0].Select(c => (string)c).ToList();
-            if (errors[0] == "RATELIMIT") { this.error_info = errors[1]; return ResponseCode.RATE_LIMITED; }
+            if (errors[0] == "RATELIMIT") { this.errorInfo = errors[1]; return ResponseCode.RATE_LIMITED; }
 
-            this.error_info = JsonConvert.SerializeObject(errors);
+            this.errorInfo = JsonConvert.SerializeObject(errors);
             return ResponseCode.UNKNOWN;
         }
     }
