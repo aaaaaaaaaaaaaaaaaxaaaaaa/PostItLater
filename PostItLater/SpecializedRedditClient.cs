@@ -11,26 +11,23 @@
         {
         }
 
-        public void ProcessTask(Task task)
+        public ResponseCode ProcessTask(Task task)
         {
             switch (task.type)
             {
                 case "comment":
-                    this.Comment(task);
-                    return;
+                    return this.Comment(task);
                 case "self":
                 case "link":
-                    this.Link(task);
-                    return;
+                    return this.Link(task);
                 default:
-                    Console.Error.WriteLine(string.Format("ERROR"));
-                    return;
+                    throw new Exception("Unknown task type");
             }
         }
 
-        private void Link(Task task)
+        private ResponseCode Link(Task task)
         {
-            this.SendRequest("api/submit", Method.POST, new Dictionary<string, string>()
+            return this.SendRequest("api/submit", Method.POST, new Dictionary<string, string>()
             {
                 { "title", task.title },
                 { "kind", task.type },
@@ -39,9 +36,9 @@
             });
         }
 
-        private void Comment(Task task)
+        private ResponseCode Comment(Task task)
         {
-            this.SendRequest("api/comment", Method.POST, new Dictionary<string, string>()
+            return this.SendRequest("api/comment", Method.POST, new Dictionary<string, string>()
             {
                 { "text", task.content },
                 { "thing_id", task.thing },

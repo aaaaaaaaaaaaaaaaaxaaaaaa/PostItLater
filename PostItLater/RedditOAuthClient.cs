@@ -2,7 +2,9 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using RestSharp;
     using RestSharp.Authenticators;
 
@@ -17,6 +19,7 @@
         private readonly string clientId;
         private readonly RestClient client;
         private APIKey apikey;
+        private string error_info;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RedditOAuthClient"/> class.
@@ -29,6 +32,14 @@
             this.client = CreateClient(OauthUrl, clientId);
             this.clientId = clientId;
         }
+
+        public enum ResponseCode
+        {
+            OKAY,
+            RATE_LIMITED,
+            HTTP_FAILURE,
+            UNKNOWN,
+        };
 
         /// <summary>
         /// Delegate to notify event subscribers of APIKey update.
@@ -50,15 +61,23 @@
         }
 
         /// <summary>
+        /// Returns additional error information that may be available from the Reddit API call.
+        /// </summary>
+        /// <returns>Reddit error.</returns>
+        public string GetErrorInfo()
+        {
+            return this.error_info;
+        }
+
+        /// <summary>
         /// Send an API request to the reddit server.
         /// </summary>
         /// <param name="endpoint">Endpoint of the REST API.</param>
         /// <param name="method">HTTP Method type.</param>
         /// <param name="parameters">Arguments for the API call.</param>
         /// <returns>If request was successful.</returns>
-        protected bool SendRequest(string endpoint, Method method, Dictionary<string, string> parameters = null)
+        protected ResponseCode SendRequest(string endpoint, Method method, Dictionary<string, string> parameters = null)
         {
-            Console.WriteLine(JsonConvert.SerializeObject(parameters));
             if (this.RemainingTokenTime < 5 * 60) { this.Refresh(); }
 
             var request = new RestRequest(endpoint, method);
@@ -71,14 +90,8 @@
                 }
             }
 
-            var response = this.client.Execute(request);
-            Console.WriteLine(response.Content);
-            Console.WriteLine(JsonConvert.SerializeObject(this.apikey));
-            Console.WriteLine("bearer " + this.apikey.token);
-            Console.WriteLine(this.clientId);
-            Console.WriteLine(response.ResponseUri);
-
-            return true;
+            var response = this.client.Execute(request); //-- response code
+            return this.GetResponseCode(response); //-- return true status
         }
 
         private static RestClient CreateClient(string baseUrl, string clientId)
@@ -107,6 +120,21 @@
             var parsed_result = JsonConvert.DeserializeObject<Token>(result.Content);
             this.apikey = new APIKey(parsed_result.access_token, this.apikey.refresh, parsed_result.expires_in);
             this.APIKeyUpdated.Invoke(this.apikey);
+        }
+
+        protected ResponseCode GetResponseCode(IRestResponse response)
+        {
+            if (response.StatusCode != System.Net.HttpStatusCode.OK) { this.error_info = string.Empty; return ResponseCode.HTTP_FAILURE; }
+
+            var raw_parse = JObject.Parse(response.Content);
+            var error_array = (JArray)raw_parse["json"]["errors"];
+            if (error_array.Count == 0) { this.error_info = string.Empty; return ResponseCode.OKAY; }
+
+            var errors = error_array[0].Select(c => (string)c).ToList();
+            if (errors[0] == "RATELIMIT") { this.error_info = errors[1]; return ResponseCode.RATE_LIMITED; }
+
+            this.error_info = JsonConvert.SerializeObject(errors);
+            return ResponseCode.UNKNOWN;
         }
     }
 }
