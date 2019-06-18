@@ -82,7 +82,7 @@
 
                     if (result == RedditOAuthClient.ResponseCode.OKAY)
                     {
-                        continue;
+                        Log.Info("Task succesfully posted.", ConsoleColor.DarkGreen);
                     }
                     else if (result == RedditOAuthClient.ResponseCode.RATE_LIMITED)
                     {
@@ -94,7 +94,6 @@
                     else
                     {
                         Log.Error(string.Format("Unknown reddit API error -- ErrorInfo: \n {0}", reddit.GetErrorInfo()), true);
-                        continue;
                     }
                 }
             }

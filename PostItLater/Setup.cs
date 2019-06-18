@@ -70,9 +70,13 @@
             request.AddParameter("code", code);
             request.AddParameter("redirect_uri", this.landingUrl);
             var result = client.Execute(request);
-            var token = JsonConvert.DeserializeObject<Token>(result.Content); //-- deserialization error
-            Log.Info(string.Format("Token received: {0}. App successfully authenticated for users profile.", token.access_token));
+            if (result.StatusCode != HttpStatusCode.OK)
+            {
+                new Exception(string.Format("Failed to convert one-time code into token. \n {0}", result.Content));
+            }
 
+            var token = JsonConvert.DeserializeObject<Token>(result.Content);
+            Log.Info(string.Format("Token received: {0}. App successfully authenticated for users profile.", token.access_token));
             return token;
         }
     }

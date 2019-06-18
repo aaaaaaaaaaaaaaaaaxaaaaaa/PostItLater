@@ -59,7 +59,17 @@
                 var context = httpListener.GetContext();
                 var request = context.Request;
                 var raw_data = new System.IO.StreamReader(request.InputStream, request.ContentEncoding).ReadToEnd();
-                var data = JsonConvert.DeserializeObject<Task>(raw_data);
+                Task data;
+                try
+                {
+                    data = JsonConvert.DeserializeObject<Task>(raw_data);
+                }
+                catch (JsonSerializationException e)
+                {
+                    Log.Error(string.Format("JSON deserialization failed with message: {0} \n body: {1}", e.Message, raw_data), true);
+                    continue;
+                }
+
                 Log.Info(string.Format("{0} task received.", data.type), force: true);
                 lock (this.queue)
                 {
