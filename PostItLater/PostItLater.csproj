@@ -59,6 +59,7 @@
     <Compile Include="RequestListener.cs" />
     <Compile Include="Setup.cs" />
     <Compile Include="SpecializedRedditClient.cs" />
+    <Compile Include="WrappedList.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

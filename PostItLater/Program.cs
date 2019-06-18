@@ -34,7 +34,8 @@
             var largs = new List<string>(args);
             if (largs.Contains("-v")) { Verbose = true; }
 
-            var pendingTasks = new Stack<Task>();
+            var pendingTasks = new WrappedList<Task>();
+
             APIKey apikey;
             if (LoadCfg().HasValue)
             {
@@ -60,14 +61,14 @@
                 if (listener.HasWork())
                 {
                     var work = listener.GetWork();
-                    work.ForEach(e => pendingTasks.Push(e));
+                    pendingTasks.AddRange(work);
                     Log.Info(string.Format("Scheduling {0} task{1}.", work.Count, work.Count > 1 ? "s" : string.Empty));
                 }
 
                 for (int i = pendingTasks.Count - 1; i >= 0; i--)
                 {
-                    var task = pendingTasks.Pop();
-                    if (now < DateTimeOffset.FromUnixTimeSeconds(task.epoch)) { continue; }
+                    if (now < DateTimeOffset.FromUnixTimeSeconds(pendingTasks[i].epoch)) { continue; }
+                    var task = pendingTasks.RemoveAt(i);
 
                     RedditOAuthClient.ResponseCode result;
                     try
@@ -88,7 +89,7 @@
                     {
                         var minutesToWait = GetRateLimitPeriod(reddit.GetErrorInfo());
                         task.epoch = now.AddMinutes(minutesToWait).ToUnixTimeSeconds();
-                        pendingTasks.Push(task);
+                        pendingTasks.Add(task);
                         Log.Warn(string.Format("Task due was delayed due to RATE_LIMITED, will try again in {0} minutes", minutesToWait));
                     }
                     else
