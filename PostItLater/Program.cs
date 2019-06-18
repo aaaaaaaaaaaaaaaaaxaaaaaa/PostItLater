@@ -21,6 +21,11 @@ namespace PostItLater
         /// </summary>
         public static readonly string CfgPath = AppDomain.CurrentDomain.BaseDirectory + "cfg.txt";
 
+        /// <summary>
+        /// Enables verbose console logs.
+        /// </summary>
+        public static bool Verbose = false;
+
         private static readonly string ClientId = "FPA7sj2DFPNWpQ";
 
         // Conditions to consider:
@@ -28,14 +33,19 @@ namespace PostItLater
         //  Bad response
         private static void Main(string[] args)
         {
+            var largs = new List<string>(args);
+            if (largs.Contains("-v")) { Verbose = true; }
+
             List<Task> pendingTasks = new List<Task>();
             APIKey apikey;
             if (LoadCfg().HasValue)
             {
+                Log.Info("APIKey loaded from config file.");
                 apikey = LoadCfg().Value;
             }
             else
             {
+                Log.Info("Config file not found, APIKey authorization starting.");
                 apikey = new Setup(ClientId).Run();
                 Reddit_APIKeyUpdated(apikey);
             }
@@ -64,6 +74,7 @@ namespace PostItLater
 
         private static void Reddit_APIKeyUpdated(APIKey apikey)
         {
+            Log.Info("APIKey updated, saving to file.");
             File.WriteAllText(CfgPath, JsonConvert.SerializeObject(apikey));
         }
 
