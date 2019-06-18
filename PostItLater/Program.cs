@@ -20,6 +20,11 @@
         public static readonly string CfgPath = AppDomain.CurrentDomain.BaseDirectory + "cfg.txt";
 
         /// <summary>
+        /// Location of saved tasks.
+        /// </summary>
+        public static readonly string TasksPath = AppDomain.CurrentDomain.BaseDirectory + "tasks.txt";
+
+        /// <summary>
         /// Enables verbose console logs.
         /// </summary>
         public static bool Verbose = false;
@@ -34,8 +39,13 @@
             var largs = new List<string>(args);
             if (largs.Contains("-v")) { Verbose = true; }
 
-            var pendingTasks = new WrappedList<Task>();
+            var pendingTasks = new WrappedList<Task>(LoadSavedTasks());
+            if (pendingTasks.Count > 0)
+            {
+                Log.Info(string.Format("Loaded {0} tasks from {1}", pendingTasks.Count, TasksPath), ConsoleColor.DarkGreen);
+            }
 
+            pendingTasks.ListChanged += (e, _) => SaveTasks((List<Task>)e);
             APIKey apikey;
             if (LoadCfg().HasValue)
             {
@@ -118,6 +128,19 @@
             var re = new Regex(@"(\d+)");
             var matches = re.Matches(msg);
             return uint.Parse(matches[0].Value);
+        }
+
+        private static Stack<Task> LoadSavedTasks()
+        {
+            if (!File.Exists(TasksPath)) { return new Stack<Task>(); }
+
+            var raw_data = File.ReadAllText(TasksPath);
+            return JsonConvert.DeserializeObject<Stack<Task>>(raw_data);
+        }
+
+        private static void SaveTasks(List<Task> tasks)
+        {
+            File.WriteAllText(TasksPath, JsonConvert.SerializeObject(tasks));
         }
     }
 }
