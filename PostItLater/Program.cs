@@ -76,7 +76,7 @@
                     }
                     catch (Exception e)
                     {
-                        Console.Error.WriteLine(string.Format("Error encounted when trying to perform task: \n {0}", e.Message));
+                        Log.Error(string.Format("Error encounted when trying to perform task: \n {0}", e.Message), true);
                         continue;
                     }
 
@@ -93,7 +93,8 @@
                     }
                     else
                     {
-                        // UNKNOWN ERROR
+                        Log.Error(string.Format("Unknown reddit API error -- ErrorInfo: \n {0}", reddit.GetErrorInfo()), true);
+                        continue;
                     }
                 }
             }

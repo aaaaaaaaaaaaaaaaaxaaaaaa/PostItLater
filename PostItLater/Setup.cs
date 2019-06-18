@@ -52,8 +52,9 @@
             httpclient.Start();
             var context = httpclient.GetContext();
             var query = context.Request.QueryString;
-            if (query["error"] != null) { Console.Error.WriteLine("Error"); }
-            if (query["state"] != this.guid.ToString()) { Console.Error.WriteLine("Error"); }
+            if (query["error"] != null) { Log.Error(string.Format("Failed to authenticate app with user profile. \n {0}", context.Request.QueryString), true); }
+            if (query["state"] != this.guid.ToString()) { Log.Error("state query parameter did not match generated state value.", true); }
+
             context.Response.Redirect("https://www.reddit.com/prefs/apps/");
             context.Response.Close();
             httpclient.Stop();
@@ -69,9 +70,9 @@
             request.AddParameter("code", code);
             request.AddParameter("redirect_uri", this.landingUrl);
             var result = client.Execute(request);
-            Console.WriteLine(result.Content);
+            var token = JsonConvert.DeserializeObject<Token>(result.Content); //-- deserialization error
+            Log.Info(string.Format("Token received: {0}. App successfully authenticated for users profile.", token.access_token));
 
-            var token = JsonConvert.DeserializeObject<Token>(result.Content);
             return token;
         }
     }

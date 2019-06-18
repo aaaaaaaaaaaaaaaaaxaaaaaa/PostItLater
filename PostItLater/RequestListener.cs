@@ -60,7 +60,7 @@
                 var request = context.Request;
                 var raw_data = new System.IO.StreamReader(request.InputStream, request.ContentEncoding).ReadToEnd();
                 var data = JsonConvert.DeserializeObject<Task>(raw_data);
-                Console.WriteLine(string.Format("{0} task added", data.type));
+                Log.Info(string.Format("{0} task received.", data.type), force: true);
                 lock (this.queue)
                 {
                     this.queue.Add(data);

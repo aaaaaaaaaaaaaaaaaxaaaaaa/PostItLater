@@ -114,9 +114,7 @@
             var result = client.Execute(request);
             if (result.StatusCode != System.Net.HttpStatusCode.OK)
             {
-                Console.Error.WriteLine("Error! Acquring token failed");
-                Console.WriteLine(result.Content);
-                return;
+                throw new Exception(string.Format("Token refresh request failed. \n {0}", result.Content));
             }
 
             var parsed_result = JsonConvert.DeserializeObject<Token>(result.Content);
