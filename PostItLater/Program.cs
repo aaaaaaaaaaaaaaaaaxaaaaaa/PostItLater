@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using RestSharp;
-using RestSharp.Authenticators;
-using Newtonsoft.Json;
-using System.Net;
-using System.Threading;
-using System.IO;
-
-namespace PostItLater
+﻿namespace PostItLater
 {
-    class Program
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Text.RegularExpressions;
+    using System.Threading;
+    using Newtonsoft.Json;
+
+    public class Program
     {
         /// <summary>
         /// Build version.
