@@ -1,9 +1,10 @@
 // ==UserScript==
-// @name         New Userscript
-// @namespace    http://tampermonkey.net/
+// @name         PostItLater
+// @namespace    http://lyxi.ca
 // @version      0.1
-// @description  try to take over the world!
-// @author       You
+// @homepage     https://github.com/Lyxica/PostItLater
+// @description  Schedule reddit comments and posts. Requires PostItLater local server.
+// @author       Lyxica
 // @match        *.reddit.com/*
 // @grant unsafeWindow
 // @grant GM_xmlhttpRequest
@@ -53,16 +54,6 @@ function SetupForComments() {
 	var now=new Date();
     var real_now = new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().substring(0,17) + "00"
     document.querySelector("#posting-time").value = real_now;
-
-	/* Setup cloneable reply forms */
-	/*var savedReply = unsafeWindow.reply;
-	unsafeWindow.reply = function(e) {
-		savedReply(e);
-		var form = e.parentNode.parentNode.parentNode.parentNode.querySelector("form.cloneable");
-		var buttons = form.querySelector(".usertext-buttons");
-		buttons.innerHTML = '<button class="btn" name="later" value="form" onclick="submitLater(this)" type="button">later</button>' + buttons.innerHTML;
-		buttons.insertAdjacentHTML("afterEnd", '<input type="datetime-local" id="posting-time">');
-	};*/
 }
 function SetupForLink() {
 	document.querySelector("#newlink > div.spacer").innerHTML = '<button class="btn" name="later" value="form" onclick="submitLater(this)" type="button">later</button>' + document.querySelector("#newlink > div.spacer").innerHTML;
