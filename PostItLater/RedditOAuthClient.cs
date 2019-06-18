@@ -82,6 +82,7 @@
 
             var request = new RestRequest(endpoint, method);
             request.AddHeader("Authorization", "bearer " + this.apikey.token);
+            request.AddQueryParameter("api_type", "json");
             if (parameters != null)
             {
                 foreach (var kv in parameters)
@@ -107,6 +108,7 @@
             var client = CreateClient(TokenUrl, this.clientId);
             client.Authenticator = new HttpBasicAuthenticator(this.clientId, string.Empty);
             var request = new RestRequest("api/v1/access_token", Method.POST);
+            request.AddQueryParameter("api_type", "json");
             request.AddParameter("grant_type", "refresh_token");
             request.AddParameter("refresh_token", this.apikey.refresh);
             var result = client.Execute(request);
