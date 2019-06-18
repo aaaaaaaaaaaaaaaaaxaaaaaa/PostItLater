@@ -63,11 +63,27 @@ namespace PostItLater
 
                 for (int i = pendingTasks.Count - 1; i >= 0; i--)
                 {
-                    var delta = DateTimeOffset.FromUnixTimeSeconds(pendingTasks[i].epoch) - now;
-                    if (delta.TotalSeconds > 0) { continue; }
+                    var task = pendingTasks[i];
+                    if (now < DateTimeOffset.FromUnixTimeSeconds(task.epoch)) { continue; }
 
-                    reddit.ProcessTask(pendingTasks[i]);
+                    var result = reddit.ProcessTask(task);
                     pendingTasks.RemoveAt(i);
+
+                    if (result == RedditOAuthClient.ResponseCode.OKAY)
+                    {
+                        continue;
+                    }
+                    else if (result == RedditOAuthClient.ResponseCode.RATE_LIMITED)
+                    {
+                        var minutesToWait = GetRateLimitPeriod(reddit.GetErrorInfo());
+                        task.epoch = now.AddMinutes(minutesToWait).ToUnixTimeSeconds();
+                        pendingTasks.Add(task);
+                        Log.Warn(string.Format("Task due was delayed due to RATE_LIMITED, will try again in {0} minutes", minutesToWait));
+                    }
+                    else
+                    {
+                        // UNKNOWN ERROR
+                    }
                 }
             }
         }
@@ -83,6 +99,13 @@ namespace PostItLater
             if (!File.Exists(CfgPath)) { return null; }
 
             return JsonConvert.DeserializeObject<APIKey>(File.ReadAllText(CfgPath));
+        }
+
+        private static uint GetRateLimitPeriod(string msg)
+        {
+            var re = new Regex(@"(\d+)");
+            var matches = re.Matches(msg);
+            return uint.Parse(matches[0].Value);
         }
     }
 }

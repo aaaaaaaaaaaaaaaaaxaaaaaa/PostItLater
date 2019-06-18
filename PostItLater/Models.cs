@@ -14,7 +14,7 @@ namespace PostItLater
     public struct Task
     {
         public string type;
-        public uint epoch;
+        public long epoch;
         public string content;
         public string thing;
         public string title;
