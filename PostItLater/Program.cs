@@ -64,7 +64,17 @@
                     var task = pendingTasks[i];
                     if (now < DateTimeOffset.FromUnixTimeSeconds(task.epoch)) { continue; }
 
-                    var result = reddit.ProcessTask(task);
+                    RedditOAuthClient.ResponseCode result;
+                    try
+                    {
+                        result = reddit.ProcessTask(task);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.Error.WriteLine(string.Format("Error encounted when trying to perform task: \n {0}", e.Message));
+                        continue;
+                    }
+
                     pendingTasks.RemoveAt(i);
 
                     if (result == RedditOAuthClient.ResponseCode.OKAY)
