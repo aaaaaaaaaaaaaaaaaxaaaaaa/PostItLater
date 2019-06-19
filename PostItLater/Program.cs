@@ -125,9 +125,10 @@
 
         private static uint GetRateLimitPeriod(string msg)
         {
-            var re = new Regex(@"(\d+)");
-            var matches = re.Matches(msg);
-            return uint.Parse(matches[0].Value);
+            var re = new Regex(@"you are doing that too much\. try again in (\d+) (minutes|seconds)\.");
+            var match = re.Match(msg);
+            var isMinutes = match.Groups[2].Value == "minutes";
+            return isMinutes ? uint.Parse(match.Groups[1].Value) : 1; // Return 1 minute period if RATE_LIMITED timer is below 60 seconds.
         }
 
         private static Stack<Task> LoadSavedTasks()
