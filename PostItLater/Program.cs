@@ -136,7 +136,7 @@
             if (!File.Exists(TasksPath)) { return new List<Task>(); }
 
             var raw_data = File.ReadAllText(TasksPath);
-            return JsonConvert.DeserializeObject<List<Task>>(raw_data);
+            return JsonConvert.DeserializeObject<List<Task>>(raw_data) ?? new List<Task>();
         }
 
         private static void SaveTasks(List<Task> tasks)
