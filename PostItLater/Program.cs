@@ -131,12 +131,12 @@
             return isMinutes ? uint.Parse(match.Groups[1].Value) : 1; // Return 1 minute period if RATE_LIMITED timer is below 60 seconds.
         }
 
-        private static Stack<Task> LoadSavedTasks()
+        private static List<Task> LoadSavedTasks()
         {
-            if (!File.Exists(TasksPath)) { return new Stack<Task>(); }
+            if (!File.Exists(TasksPath)) { return new List<Task>(); }
 
             var raw_data = File.ReadAllText(TasksPath);
-            return JsonConvert.DeserializeObject<Stack<Task>>(raw_data);
+            return JsonConvert.DeserializeObject<List<Task>>(raw_data);
         }
 
         private static void SaveTasks(List<Task> tasks)
