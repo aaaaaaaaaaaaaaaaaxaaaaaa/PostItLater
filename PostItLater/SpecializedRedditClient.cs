@@ -34,6 +34,7 @@
                 { "sr", task.thing },
                 { task.type == "self" ? "text" : "url", task.content },
                 { "sendreplies", "true" },
+                { "resubmit", "true" },
             });
         }
 
