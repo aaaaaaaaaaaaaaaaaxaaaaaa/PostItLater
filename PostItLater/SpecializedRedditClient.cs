@@ -33,6 +33,7 @@
                 { "kind", task.type },
                 { "sr", task.thing },
                 { task.type == "self" ? "text" : "url", task.content },
+                { "sendreplies", "true" },
             });
         }
 
